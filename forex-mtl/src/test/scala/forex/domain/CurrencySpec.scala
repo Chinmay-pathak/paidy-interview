@@ -30,7 +30,7 @@ class CurrencySpec extends AnyWordSpec with Matchers {
         Currency.USD
       )
 
-      Currency.all.distinct should have size Currency.all.size
+      Currency.all.distinct.size shouldBe Currency.all.size
     }
   }
 
