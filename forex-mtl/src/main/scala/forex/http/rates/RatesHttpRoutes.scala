@@ -1,6 +1,7 @@
 package forex.http
 package rates
 
+import cats.data.Validated.{ Invalid, Valid }
 import cats.effect.Sync
 import cats.syntax.flatMap._
 import forex.programs.RatesProgram
@@ -17,8 +18,13 @@ class RatesHttpRoutes[F[_]: Sync](rates: RatesProgram[F]) extends Http4sDsl[F] {
 
   private val httpRoutes: HttpRoutes[F] = HttpRoutes.of[F] {
     case GET -> Root :? FromQueryParam(from) +& ToQueryParam(to) =>
-      rates.get(RatesProgramProtocol.GetRatesRequest(from, to)).flatMap(Sync[F].fromEither).flatMap { rate =>
-        Ok(rate.asGetApiResponse)
+      (from, to) match {
+        case (Valid(validFrom), Valid(validTo)) =>
+          rates.get(RatesProgramProtocol.GetRatesRequest(validFrom, validTo)).flatMap(Sync[F].fromEither).flatMap { rate =>
+            Ok(rate.asGetApiResponse)
+          }
+        case (Invalid(_), _) | (_, Invalid(_)) =>
+          BadRequest("Invalid currency")
       }
   }
 
