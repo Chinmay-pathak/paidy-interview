@@ -5,7 +5,7 @@ import cats.effect.concurrent.{ Ref, Semaphore }
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import forex.domain.{ Currency, Rate }
+import forex.domain.Rate
 import forex.services.rates.Algebra
 import forex.services.rates.errors.Error
 
@@ -59,10 +59,6 @@ class OneFrameCached[F[_]: Sync](
     rate.timestamp.value.isAfter(currentTime.minusNanos(cacheTtl.toNanos))
 
   private val allPairs: List[Rate.Pair] =
-    Currency.all.flatMap { from =>
-      Currency.all.collect {
-        case to if to != from => Rate.Pair(from, to)
-      }
-    }
+    Rate.Pair.all
 
 }
