@@ -20,9 +20,13 @@ class OneFrameCached[F[_]: Sync](
 ) extends Algebra[F] {
 
   override def get(pair: Rate.Pair): F[Error Either Rate] =
-    freshCached(pair).flatMap {
-      case Some(rate) => Sync[F].pure(rate.asRight[Error])
-      case None       => refreshLock.withPermit(refreshAndGet(pair))
+    if (!allPairs.contains(pair)) {
+      Sync[F].pure(Error.UnsupportedPair("Unsupported currency pair").asLeft[Rate])
+    } else {
+      freshCached(pair).flatMap {
+        case Some(rate) => Sync[F].pure(rate.asRight[Error])
+        case None       => refreshLock.withPermit(refreshAndGet(pair))
+      }
     }
 
   private def refreshAndGet(pair: Rate.Pair): F[Error Either Rate] =
@@ -35,7 +39,7 @@ class OneFrameCached[F[_]: Sync](
             cache.set(rates.map(rate => rate.pair -> rate).toMap) >>
               freshCached(pair).map {
                 case Some(rate) => rate.asRight[Error]
-                case None       => Error.OneFrameLookupFailed("No fresh rate available").asLeft[Rate]
+                case None       => Error.NoFreshRateAvailable("No fresh rate available").asLeft[Rate]
               }
         }
     }
