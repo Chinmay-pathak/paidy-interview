@@ -30,6 +30,8 @@ curl "http://localhost:8081/rates?from=USD&to=JPY"
 sbt test
 ```
 
+The test suite runs in memory and does not require Docker or a running One-Frame container.
+
 ## Load Smoke Test
 
 After starting One-Frame and this service, run:
@@ -91,10 +93,20 @@ That stays below the One-Frame token limit of 1,000 requests/day while allowing 
 | Scenario | HTTP status | Example body |
 | --- | --- | --- |
 | Valid request | `200 OK` | `{"from":"USD","to":"JPY","price":123.45,"timestamp":"..."}` |
+| Missing `from` or `to` query parameter | `400 Bad Request` | `{"error":"missing_query_params","message":"Both 'from' and 'to' query parameters are required"}` |
 | Invalid currency | `400 Bad Request` | `{"error":"invalid_currency","message":"Unsupported currency"}` |
 | Unsupported or same-currency pair | `404 Not Found` | `{"error":"unsupported_pair","message":"Unsupported currency pair"}` |
 | One-Frame failure | `502 Bad Gateway` | `{"error":"provider_unavailable","message":"Unable to refresh rates from One-Frame"}` |
 | No fresh rate available | `503 Service Unavailable` | `{"error":"no_fresh_rate","message":"No fresh rate available"}` |
+
+## Compliance Checks
+
+```sh
+curl "http://localhost:8081/rates?from=USD&to=JPY" # 200 OK
+curl "http://localhost:8081/rates?from=BTC&to=USD" # 400 Bad Request
+curl "http://localhost:8081/rates?from=USD"        # 400 Bad Request
+curl "http://localhost:8081/rates?from=USD&to=USD" # 404 Not Found
+```
 
 ## Assumptions
 

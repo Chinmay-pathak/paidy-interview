@@ -28,6 +28,8 @@ class RatesHttpRoutes[F[_]: Sync](rates: RatesProgram[F]) extends Http4sDsl[F] {
         case (Invalid(_), _) | (_, Invalid(_)) =>
           BadRequest(ErrorResponse("invalid_currency", "Unsupported currency"))
       }
+    case GET -> Root =>
+      BadRequest(ErrorResponse("missing_query_params", "Both 'from' and 'to' query parameters are required"))
   }
 
   private def toHttpResponse(error: RatesProgramError) =

@@ -38,6 +38,36 @@ class RatesHttpRoutesSpec extends AnyWordSpec with Matchers {
       body should include("invalid_currency")
     }
 
+    "return 400 when the from query parameter is missing" in {
+      val routes = new RatesHttpRoutes[IO](program(Left(Error.RateLookupFailed("should not be called")))).routes.orNotFound
+
+      val response = routes.run(request(uri"/rates?to=JPY")).unsafeRunSync()
+      val body     = response.as[String].unsafeRunSync()
+
+      response.status shouldBe Status.BadRequest
+      body should include("missing_query_params")
+    }
+
+    "return 400 when the to query parameter is missing" in {
+      val routes = new RatesHttpRoutes[IO](program(Left(Error.RateLookupFailed("should not be called")))).routes.orNotFound
+
+      val response = routes.run(request(uri"/rates?from=USD")).unsafeRunSync()
+      val body     = response.as[String].unsafeRunSync()
+
+      response.status shouldBe Status.BadRequest
+      body should include("missing_query_params")
+    }
+
+    "return 400 when both query parameters are missing" in {
+      val routes = new RatesHttpRoutes[IO](program(Left(Error.RateLookupFailed("should not be called")))).routes.orNotFound
+
+      val response = routes.run(request(uri"/rates")).unsafeRunSync()
+      val body     = response.as[String].unsafeRunSync()
+
+      response.status shouldBe Status.BadRequest
+      body should include("missing_query_params")
+    }
+
     "return 502 for provider failures" in {
       val routes = new RatesHttpRoutes[IO](program(Left(Error.RateLookupFailed("boom")))).routes.orNotFound
 
@@ -59,4 +89,3 @@ class RatesHttpRoutesSpec extends AnyWordSpec with Matchers {
     Request[IO](uri = uri)
 
 }
-
