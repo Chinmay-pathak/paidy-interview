@@ -76,6 +76,23 @@ Supported currencies are `AUD`, `CAD`, `CHF`, `EUR`, `GBP`, `NZD`, `JPY`, `SGD`,
 
 Cache TTL, One-Frame base URL, and auth token are configurable in `src/main/resources/application.conf` or via JVM system properties.
 
+## Code Structure
+
+- `src/main/scala/forex/domain/`
+  Domain types such as `Currency`, `Rate`, `Price`, and `Timestamp`. `Currency.fromString` handles safe parsing, and `Rate.Pair.all` defines all supported directional pairs.
+- `src/main/scala/forex/services/rates/interpreters/OneFrameLive.scala`
+  Small HTTP client for One-Frame. It builds the `/rates?pair=...` request, sends the token header, decodes the provider response, and maps provider failures.
+- `src/main/scala/forex/services/rates/interpreters/OneFrameCached.scala`
+  Cache-backed rates service. It checks freshness, refreshes all pairs in one batched One-Frame call, and uses a `Semaphore` to avoid duplicate refreshes under concurrent load.
+- `src/main/scala/forex/programs/rates/`
+  Application layer between HTTP and services. It keeps HTTP concerns out of the service implementation and maps service errors into program errors.
+- `src/main/scala/forex/http/rates/`
+  HTTP API layer. It parses query params, maps successful rates to JSON, and maps program errors to stable HTTP responses.
+- `src/main/scala/forex/config/`
+  Typed application configuration for HTTP, One-Frame, and cache TTL.
+- `src/main/scala/forex/Main.scala` and `src/main/scala/forex/Module.scala`
+  Runtime wiring. They build the http4s client, live cached rates service, program, and routes.
+
 ## Quota Math
 
 There are 9 supported currencies, so there are `9 * 8 = 72` directional pairs.
