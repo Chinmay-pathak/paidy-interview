@@ -10,6 +10,8 @@ Start One-Frame on port 8080:
 docker run -p 8080:8080 paidyinc/one-frame
 ```
 
+The default One-Frame token (`10dc303535874aeccc86a8251e6992f5`) is pre-configured.
+
 Start this service on a different port:
 
 ```sh
@@ -32,7 +34,11 @@ sbt test
 
 The service does not call One-Frame for every incoming request. On a cache miss or stale rate, it refreshes every supported directional currency pair in one batched One-Frame request, stores the result in memory, and serves later requests from that cache while rates are fresh.
 
-Supported currencies are `AUD`, `CAD`, `CHF`, `EUR`, `GBP`, `NZD`, `JPY`, `SGD`, and `USD`. Same-currency pairs such as `USDUSD` are unsupported.
+On first request after startup or restart, the cache is empty, so the service fetches all 72 supported pairs from One-Frame before responding. That first request may be slightly slower than later cache hits.
+
+Supported currencies are `AUD`, `CAD`, `CHF`, `EUR`, `GBP`, `NZD`, `JPY`, `SGD`, and `USD`. Same-currency pairs such as `USDUSD` are unsupported and return `404 Not Found`.
+
+Cache TTL, One-Frame base URL, and auth token are configurable in `src/main/resources/application.conf` or via JVM system properties.
 
 ## Quota Math
 
@@ -46,12 +52,23 @@ Refreshing all pairs once every 5 minutes uses:
 
 That stays below the One-Frame token limit of 1,000 requests/day while allowing 10,000+ local requests/day to be served mostly from memory.
 
+## Error Responses
+
+| Scenario | HTTP status | Example body |
+| --- | --- | --- |
+| Valid request | `200 OK` | `{"from":"USD","to":"JPY","price":123.45,"timestamp":"..."}` |
+| Invalid currency | `400 Bad Request` | `{"error":"invalid_currency","message":"Unsupported currency"}` |
+| Unsupported or same-currency pair | `404 Not Found` | `{"error":"unsupported_pair","message":"Unsupported currency pair"}` |
+| One-Frame failure | `502 Bad Gateway` | `{"error":"provider_unavailable","message":"Unable to refresh rates from One-Frame"}` |
+| No fresh rate available | `503 Service Unavailable` | `{"error":"no_fresh_rate","message":"No fresh rate available"}` |
+
 ## Assumptions
 
 - Direction matters: `USDJPY` and `JPYUSD` are different rates.
+- Same-currency pairs are not exchange rates and are treated as unsupported.
 - One-Frame's `time_stamp` is used to decide whether a rate is fresh.
 - Rates older than the configured cache TTL are not served.
-- If One-Frame fails and no fresh cached rate is available, the service returns an error instead of stale data.
+- If One-Frame fails and no fresh cached rate is available, the service returns an error instead of stale data. Serving stale rates risks mispricing in downstream financial calculations, so the service fails clearly rather than silently returning outdated data.
 - The default One-Frame token and local URL are configured in `src/main/resources/application.conf`.
 
 ## Known Limitations
@@ -60,4 +77,4 @@ That stays below the One-Frame token limit of 1,000 requests/day while allowing 
 - In a multi-instance production deployment, refreshes would need shared coordination, for example Redis, a scheduled refresher, or leader election.
 - The cache is empty on restart.
 - Retry behavior is intentionally minimal to avoid burning the One-Frame daily quota.
-
+- A production deployment would likely expose separate liveness and readiness endpoints. Readiness could include cache age, cached pair count, and last refresh status.
