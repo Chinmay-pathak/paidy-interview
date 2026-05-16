@@ -30,6 +30,40 @@ curl "http://localhost:8081/rates?from=USD&to=JPY"
 sbt test
 ```
 
+## Load Smoke Test
+
+After starting One-Frame and this service, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\load-test.ps1
+```
+
+The script warms the cache once, then sends 10,000 requests to `GET /rates?from=USD&to=JPY` using 100 PowerShell jobs. It is intended as a local smoke test, not a precise latency benchmark.
+
+To verify provider protection, watch the service logs for:
+
+```text
+Refreshing all rates from One-Frame
+```
+
+Expected behavior:
+
+- cold cache: 1 refresh log line
+- warm cache within the TTL window: 0 additional refresh log lines during the 10,000-request run
+
+This confirms that local request volume is served from the cache rather than turning into one One-Frame request per local request.
+
+Local smoke-test result:
+
+```text
+Requests: 10000
+Elapsed reported by script: 9.97 seconds
+Approx requests/sec reported by script: 1003
+Observed One-Frame refresh logs during warm-cache run: 0 additional refreshes
+```
+
+The PowerShell script has noticeable job startup and scheduling overhead, so these numbers are used only as a correctness smoke test. The key result is that the 10,000 local requests did not produce additional One-Frame refreshes while the cache was warm.
+
 ## Design
 
 The service does not call One-Frame for every incoming request. On a cache miss or stale rate, it refreshes every supported directional currency pair in one batched One-Frame request, stores the result in memory, and serves later requests from that cache while rates are fresh.

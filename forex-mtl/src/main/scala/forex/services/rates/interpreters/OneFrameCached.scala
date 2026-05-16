@@ -8,6 +8,7 @@ import cats.syntax.functor._
 import forex.domain.Rate
 import forex.services.rates.Algebra
 import forex.services.rates.errors.Error
+import org.slf4j.LoggerFactory
 
 import java.time.OffsetDateTime
 import scala.concurrent.duration.FiniteDuration
@@ -33,6 +34,7 @@ class OneFrameCached[F[_]: Sync](
     freshCached(pair).flatMap {
       case Some(rate) => Sync[F].pure(rate.asRight[Error])
       case None =>
+        logRefresh >>
         oneFrame.get(allPairs).flatMap {
           case Left(error) => Sync[F].pure(error.asLeft[Rate])
           case Right(rates) =>
@@ -61,4 +63,11 @@ class OneFrameCached[F[_]: Sync](
   private val allPairs: List[Rate.Pair] =
     Rate.Pair.all
 
+  private def logRefresh: F[Unit] =
+    Sync[F].delay(OneFrameCached.logger.info("Refreshing all rates from One-Frame"))
+
+}
+
+object OneFrameCached {
+  private val logger = LoggerFactory.getLogger("forex.services.rates.interpreters.OneFrameCached")
 }
