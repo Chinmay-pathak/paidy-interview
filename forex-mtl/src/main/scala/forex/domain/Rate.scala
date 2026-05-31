@@ -11,4 +11,13 @@ object Rate {
       from: Currency,
       to: Currency
   )
+
+  object Pair {
+    val all: List[Pair] =
+      for {
+        from <- Currency.all
+        to   <- Currency.all
+        if from != to
+      } yield Pair(from, to)
+  }
 }
